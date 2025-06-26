@@ -1,5 +1,5 @@
 import { supabase } from "$lib/supabaseClient";
-import type { Actions } from "@sveltejs/kit";
+import { fail, type Actions } from "@sveltejs/kit";
 
 
 export const actions: Actions = {
@@ -10,18 +10,16 @@ export const actions: Actions = {
         let phone = formData.get("phone") as string;
         let email = formData.get("email") as string;
 
-        console.log(phone)
+        if(!email || !fullName || !phone) return fail(400, {errorMessage: "All fields are required!"});
 
-        const {data, error} = await supabase.auth.signInWithOtp({
+        const {data, error} = await event.locals.supabase.auth.signInWithOtp({
             phone: phone
         });
 
 
         if (error) {
-            console.log(error);
+            return fail(400, {errorMessage: error.message})
         }
-
-        console.log(data)
 
 
         // return 
@@ -32,6 +30,7 @@ export const actions: Actions = {
 
     // verify otp
     verifyOtp : async (event) => {
+        
         let formData = await event.request.formData();
 
         let fullName = formData.get("fullName") as string;
@@ -42,23 +41,24 @@ export const actions: Actions = {
 
         // verify the otp
         const {
-        data: { session },
-        error,
-        } = await supabase.auth.verifyOtp({
-        phone: phone,
-        token: otp,
-        type: 'sms',
+            data: { session },
+            error,
+        } = await event.locals.supabase.auth.verifyOtp({
+            phone: phone,
+            token: otp,
+            type: 'sms',
         })
 
-        console.log(error)
-        console.log(session)
+
         // create verified user in the table
-        await supabase.from('profiles').upsert({
+        let {data} =  await supabase.from('profiles').upsert({
             id: session?.user.id,
             full_name: fullName,
             phone: session?.user.phone,
             email: email
         })
+
+ 
     }
 };
 
